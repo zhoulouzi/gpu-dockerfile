@@ -1,4 +1,5 @@
-FROM nvidia/cuda:12.2.2-cudnn8-devel-ubuntu20.04
+#FROM nvcr.io/nvidia/cuda:12.4.1-cudnn-devel-ubuntu20.04
+FROM nvcr.io/nvidia/cuda:12.6.3-cudnn-devel-ubuntu20.04
 
 ENV TZ=Asia/Shanghai
 RUN ln -snf /usr/share/zoneinfo/$TZ /etc/localtime && echo $TZ > /etc/timezone
@@ -10,7 +11,7 @@ RUN apt-get update && \
     wget \
     python3.8 \
     python3.8-dev \
-    python3.8-distutils 
+    python3.8-distutils
 
 RUN ln -s /usr/bin/python3 /usr/bin/python
 
@@ -29,19 +30,16 @@ RUN apt-get update && apt-get install -y \
     openmpi-common \
     libopenmpi-dev
 
-# Install nccl (already install in base image)
-#RUN apt-get update && \
-#apt-get install -y \
-#libnccl2=2.19.3-1+cuda12.2 \
-#libnccl-dev=2.19.3-1+cuda12.2
-
-ENV LD_LIBRARY_PATH /usr/lib/x86_64-linux-gnu/:/usr/local/cuda/lib64/:$LD_LIBRARY_PATH
+# Install RDMA libraries
+RUN apt-get update && apt-get install -y \
+    ibverbs-utils libibverbs-dev libibumad3 libibumad-dev librdmacm-dev rdmacm-utils infiniband-diags ibverbs-utils 
 
 # Install nccl-tests
 WORKDIR /root/nccl-tests
 RUN wget -q -O - https://github.com/NVIDIA/nccl-tests/archive/refs/tags/v2.13.9.tar.gz | tar --strip-components=1 -xzf - \
     && cd /root/nccl-tests && make -j 10 MPI=1 MPI_HOME=/usr/lib/x86_64-linux-gnu/openmpi/
 
+RUN ldconfig
 
 # Install SSH dependencies for MPI
 RUN apt-get install -y --no-install-recommends openssh-client openssh-server && mkdir -p /var/run/sshd
@@ -49,3 +47,4 @@ RUN sed -i 's/[ #]\(.*StrictHostKeyChecking \).*/ \1no/g' /etc/ssh/ssh_config &&
     echo "    UserKnownHostsFile /dev/null" >> /etc/ssh/ssh_config && \
     sed -i 's/#\(StrictModes \).*/\1no/g' /etc/ssh/sshd_config && \
     sed -i 's/#Port 22/Port 2222/g' /etc/ssh/sshd_config
+
